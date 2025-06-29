@@ -120,7 +120,6 @@ This server has access to your Outlook email account and can read, send, and man
 
 ## Limitations
 
-- Currently supports text emails only (not HTML)
 - Maximum email history is limited to 30 days
 - Search capabilities depend on Outlook's built-in search functionality
 - Only supports basic email functions (no calendar, contacts, etc.)

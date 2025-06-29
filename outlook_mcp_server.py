@@ -3,6 +3,7 @@ import os
 import win32com.client
 from typing import List, Optional, Dict, Any
 from mcp.server.fastmcp import FastMCP, Context
+from markdownify import markdownify as md
 
 # Initialize FastMCP server
 mcp = FastMCP("outlook-assistant")
@@ -62,6 +63,11 @@ def format_email(mail_item) -> Dict[str, Any]:
                     recipients.append(f"{recipient.Name}")
         
         # Format the email data
+        body = mail_item.Body
+        html_body = mail_item.HTMLBody
+        if html_body:
+            body = md(html_body)
+
         email_data = {
             "id": mail_item.EntryID,
             "conversation_id": mail_item.ConversationID if hasattr(mail_item, 'ConversationID') else None,
@@ -70,7 +76,7 @@ def format_email(mail_item) -> Dict[str, Any]:
             "sender_email": mail_item.SenderEmailAddress,
             "received_time": mail_item.ReceivedTime.strftime("%Y-%m-%d %H:%M:%S") if mail_item.ReceivedTime else None,
             "recipients": recipients,
-            "body": mail_item.Body,
+            "body": body,
             "has_attachments": mail_item.Attachments.Count > 0,
             "attachment_count": mail_item.Attachments.Count if hasattr(mail_item, 'Attachments') else 0,
             "unread": mail_item.UnRead if hasattr(mail_item, 'UnRead') else False,
@@ -400,7 +406,7 @@ def reply_to_email_by_number(email_number: int, reply_text: str) -> str:
         
         # Create reply
         reply = email.Reply()
-        reply.Body = reply_text
+        reply.HTMLBody = reply_text
         
         # Send the reply
         reply.Send()
@@ -437,7 +443,7 @@ def compose_email(recipient_email: str, subject: str, body: str, cc_email: Optio
             mail.CC = cc_email
         
         # Add signature to the body
-        mail.Body = body
+        mail.HTMLBody = body
         
         # Send the email
         mail.Send()
