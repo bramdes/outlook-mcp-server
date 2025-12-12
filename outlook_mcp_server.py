@@ -453,6 +453,83 @@ def compose_email(recipient_email: str, subject: str, body: str, cc_email: Optio
     except Exception as e:
         return f"Error sending email: {str(e)}"
 
+@mcp.tool()
+def list_events(start_date: str, end_date: str) -> str:
+    """
+    List calendar events within a date range
+    
+    Args:
+        start_date: Start date in MM/DD/YYYY format
+        end_date: End date in MM/DD/YYYY format
+        
+    Returns:
+        List of calendar events in the specified date range
+    """
+    try:
+        # Parse dates
+        try:
+            start_dt = datetime.datetime.strptime(start_date, "%m/%d/%Y")
+            end_dt = datetime.datetime.strptime(end_date, "%m/%d/%Y")
+        except ValueError:
+            return "Error: Dates must be in MM/DD/YYYY format"
+        
+        # Connect to Outlook
+        _, namespace = connect_to_outlook()
+        
+        # Get calendar folder (9 is the default calendar folder)
+        calendar = namespace.GetDefaultFolder(9)
+        
+        # Get appointments in date range
+        appointments = calendar.Items
+        appointments.IncludeRecurrences = True
+        appointments.Sort("[Start]")
+        
+        # Create filter for date range - include events that start before end_date and end after start_date
+        start_filter = start_dt.strftime("%m/%d/%Y")
+        end_filter = (end_dt + datetime.timedelta(days=1)).strftime("%m/%d/%Y")  # Add one day for inclusive end
+        filter_string = f"[Start] < '{end_filter}' AND [End] >= '{start_filter}'"
+        appointments = appointments.Restrict(filter_string)
+        
+        events = []
+        for appointment in appointments:
+            try:
+                event_data = {
+                    "subject": appointment.Subject if appointment.Subject else "No Subject",
+                    "start": appointment.Start.strftime("%Y-%m-%d %H:%M:%S") if appointment.Start else None,
+                    "end": appointment.End.strftime("%Y-%m-%d %H:%M:%S") if appointment.End else None,
+                    "location": appointment.Location if appointment.Location else "",
+                    "organizer": appointment.Organizer if hasattr(appointment, 'Organizer') and appointment.Organizer else "Unknown",
+                    "body": appointment.Body[:200] + "..." if appointment.Body and len(appointment.Body) > 200 else (appointment.Body if appointment.Body else ""),
+                    "all_day": appointment.AllDayEvent if hasattr(appointment, 'AllDayEvent') else False,
+                    "reminder_set": appointment.ReminderSet if hasattr(appointment, 'ReminderSet') else False
+                }
+                events.append(event_data)
+            except Exception as e:
+                print(f"Warning: Error processing appointment: {str(e)}")
+                continue
+        
+        if not events:
+            return f"No events found between {start_date} and {end_date}"
+        
+        result = f"Found {len(events)} events between {start_date} and {end_date}:\n\n"
+        for i, event in enumerate(events, 1):
+            result += f"Event #{i}\n"
+            result += f"Subject: {event['subject']}\n"
+            result += f"Start: {event['start']}\n"
+            result += f"End: {event['end']}\n"
+            result += f"Location: {event['location']}\n"
+            result += f"Organizer: {event['organizer']}\n"
+            result += f"All Day: {'Yes' if event['all_day'] else 'No'}\n"
+            result += f"Reminder: {'Yes' if event['reminder_set'] else 'No'}\n"
+            if event['body']:
+                result += f"Description: {event['body']}\n"
+            result += "\n"
+        
+        return result
+        
+    except Exception as e:
+        return f"Error listing events: {str(e)}"
+
 # Run the server
 if __name__ == "__main__":
     print("Starting Outlook MCP Server...")
